@@ -4,7 +4,7 @@ import "container/list"
 
 //LRU Cache
 type Cache struct {
-	maxBytes  int64                         //最大容量
+	maxBytes  int64                         //最大容量，为 0 则无上限(表现在不会主动淘汰记录)
 	nBytes    int64                         //当前容量
 	ll        *list.List                    //存储value
 	cache     map[string]*list.Element      //存储key-value对
