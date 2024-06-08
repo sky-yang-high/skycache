@@ -6,9 +6,9 @@ import (
 )
 
 type cache struct {
-	mu         sync.RWMutex //读写锁
-	lru        *lru.Cache   //实际的 lru cache
-	cacheBytes int64        //容量
+	mu         sync.Mutex //锁
+	lru        *lru.Cache //实际的 lru cache
+	cacheBytes int64      //容量
 }
 
 func (c *cache) set(key string, value ByteView) {
@@ -23,8 +23,9 @@ func (c *cache) set(key string, value ByteView) {
 }
 
 func (c *cache) get(key string) (ByteView, bool) {
-	c.mu.RLock() //只 lock r，允许其他 读，但不允许 写
-	defer c.mu.RUnlock()
+	// ! mu 不能只关闭读锁，因为 lru.Get 存在移动链表的操作，会修改它
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	if c.lru == nil {
 		// * 不要返回 nil, false，会出问题的
