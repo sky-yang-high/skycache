@@ -23,7 +23,7 @@ func (c *cache) set(key string, value ByteView) {
 }
 
 func (c *cache) get(key string) (ByteView, bool) {
-	// ! mu 不能只关闭读锁，因为 lru.Get 存在移动链表的操作，会修改它
+	// ! mu 不能只 lock 读锁，因为 lru.Get 存在移动链表的操作，会修改它
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

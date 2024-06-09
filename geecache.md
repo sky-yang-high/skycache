@@ -70,6 +70,19 @@
 
    接口型函数，类似的写法在 HTTP.Handler 里也见过，感觉还是挺巧妙的，把这个工作交给用户负责。
 
+## HTTP 服务
+
+上面两步，我们实现了单机的 cache，通过锁控制并发。下面我们考虑实现分布式系统，即提到的两个问题：一致性和通信。本节解决通信问题。
+
+考虑实现一个 HTTP.Handler，提供处理来自其他节点的对 <group>/<key> 的访问的响应，具体实现思路：
+
+- 检查请求 URL，不满足合适的前缀，返回 NotFound
+- 检查 URL，请求参数不合适，返回 BadRequest
+- 然后从本机的 cache group 中查找相应的 value，未查找到，返回 InternalError(或许返回 NotFound更好?)
+- 找到，则以字节形式返回 value
+
+编写 HTTPTest，检验正确性。
+
 
 
 
