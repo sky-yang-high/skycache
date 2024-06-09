@@ -17,6 +17,7 @@ const (
 	defaultReplicas = 50
 )
 
+// 确保 实现了对应的接口
 var _ PeerPicker = (*HTTPPool)(nil)
 var _ PeerGetter = (*httpGetter)(nil)
 
@@ -104,6 +105,7 @@ type httpGetter struct {
 	baseURL string
 }
 
+// 和 远程节点通信，远程节点进入 ServeHTTP 响应
 func (h *httpGetter) Get(group string, key string) ([]byte, error) {
 	u := fmt.Sprintf(
 		"%v%v/%v",

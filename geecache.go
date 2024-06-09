@@ -18,6 +18,7 @@ func (f GetterFunc) Get(key string) ([]byte, error) {
 	return f(key)
 }
 
+// 一个 Group，描述一种资源，这种资源分布式的保存在多个节点中
 type Group struct {
 	name      string
 	getter    Getter
