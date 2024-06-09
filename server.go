@@ -2,15 +2,16 @@ package geecache
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 
 	"geecache/consistenthash"
 )
+
+// 为 geecache 之间提供通信能力
+// 这样部署在其他机器上的 cache 可以通过访问server获取缓存
 
 const (
 	defaultBasePath = "/_geecache/"
@@ -18,31 +19,31 @@ const (
 )
 
 // 确保 实现了对应的接口
-var _ PeerPicker = (*HTTPPool)(nil)
-var _ PeerGetter = (*httpGetter)(nil)
+var _ PeerPicker = (*Server)(nil)
 
-type HTTPPool struct {
-	self        string     //自身的URL
+// 和Group 解耦合，实现
+type Server struct {
+	addr        string     // ip:port 的形式
 	basePath    string     //节点通信的 前缀URL
 	mu          sync.Mutex // guards peers and httpGetters
 	peers       *consistenthash.HashMap
-	httpGetters map[string]*httpGetter // keyed by e.g. "http://10.0.0.2:8008"
+	httpGetters map[string]*Client // keyed by e.g. "http://10.0.0.2:8008"
 }
 
-func NewHTTPPool(self string) *HTTPPool {
-	return &HTTPPool{
-		self:     self,
+func NewHTTPPool(self string) *Server {
+	return &Server{
+		addr:     self,
 		basePath: defaultBasePath,
 	}
 }
 
-func (p *HTTPPool) Log(format string, v ...interface{}) {
-	log.Printf("[Server %s] %s", p.self, fmt.Sprintf(format, v...))
+func (p *Server) Log(format string, v ...interface{}) {
+	log.Printf("[Server %s] %s", p.addr, fmt.Sprintf(format, v...))
 }
 
 // 实现节点间的通信，在自己的 groups 下查找对应的 group 和 key
 // 返回 err(如果未找到) 或 value
-func (p *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (p *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(r.URL.Path, p.basePath) {
 		// ? should i panic in this case?
 		log.Println(r.URL.Path, p.basePath)
@@ -78,55 +79,24 @@ func (p *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Set updates the pool's list of peers.
-func (p *HTTPPool) Set(peers ...string) {
+func (p *Server) Set(peers ...string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.peers = consistenthash.New(defaultReplicas, nil)
 	p.peers.Add(peers...)
-	p.httpGetters = make(map[string]*httpGetter, len(peers))
+	p.httpGetters = make(map[string]*Client, len(peers))
 	for _, peer := range peers {
-		p.httpGetters[peer] = &httpGetter{baseURL: peer + p.basePath}
+		p.httpGetters[peer] = &Client{target: peer + p.basePath}
 	}
 }
 
 // PickPeer picks a peer according to key
-func (p *HTTPPool) PickPeer(key string) (PeerGetter, bool) {
+func (p *Server) PickPeer(key string) (PeerGetter, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if peer := p.peers.Get(key); peer != "" && peer != p.self {
+	if peer := p.peers.Get(key); peer != "" && peer != p.addr {
 		p.Log("Pick peer %s", peer)
 		return p.httpGetters[peer], true
 	}
 	return nil, false
-}
-
-// 实现 Getter 接口，使用 HTTP 访问 url 获得对应的资源
-type httpGetter struct {
-	baseURL string
-}
-
-// 和 远程节点通信，远程节点进入 ServeHTTP 响应
-func (h *httpGetter) Get(group string, key string) ([]byte, error) {
-	u := fmt.Sprintf(
-		"%v%v/%v",
-		h.baseURL,
-		url.QueryEscape(group),
-		url.QueryEscape(key),
-	)
-	res, err := http.Get(u)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("server returned: %v", res.Status)
-	}
-
-	bytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response body: %v", err)
-	}
-
-	return bytes, nil
 }
