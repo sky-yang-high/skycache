@@ -5,6 +5,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	pb "skycache/skycachepb"
+
+	"google.golang.org/protobuf/proto"
 )
 
 // 为 cache 实现访问远程节点的能力
@@ -17,27 +20,31 @@ type Client struct {
 }
 
 // 和 远程节点通信，远程节点进入 ServeHTTP 响应
-func (h *Client) Get(group string, key string) ([]byte, error) {
+func (h *Client) Get(in *pb.Request, out *pb.Response) error {
 	u := fmt.Sprintf(
 		"%v%v/%v",
 		h.target,
-		url.QueryEscape(group),
-		url.QueryEscape(key),
+		url.QueryEscape(in.Group),
+		url.QueryEscape(in.Key),
 	)
 	res, err := http.Get(u)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("server returned: %v", res.Status)
+		return fmt.Errorf("server returned: %v", res.Status)
 	}
 
 	bytes, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response body: %v", err)
+		return err
 	}
 
-	return bytes, nil
+	if err = proto.Unmarshal(bytes, out); err != nil {
+		return fmt.Errorf("decoding response body: %v", err)
+	}
+
+	return nil
 }

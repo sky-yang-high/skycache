@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"skycache/singleflight"
+	pb "skycache/skycachepb"
 	"sync"
 )
 
@@ -107,11 +108,17 @@ func (g *Group) load(key string) (value ByteView, err error) {
 }
 
 func (g *Group) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
-	bytes, err := peer.Get(g.name, key)
+	req := &pb.Request{
+		Group: g.name,
+		Key:   key,
+	}
+	resp := &pb.Response{}
+
+	err := peer.Get(req, resp)
 	if err != nil {
 		return ByteView{}, err
 	}
-	return ByteView{b: bytes}, nil
+	return ByteView{b: resp.Value}, nil
 }
 
 // 调用 getter 从用户处获取源数据

@@ -8,6 +8,9 @@ import (
 	"sync"
 
 	"skycache/consistenthash"
+	pb "skycache/skycachepb"
+
+	"google.golang.org/protobuf/proto"
 )
 
 // 为 geecache 之间提供通信能力
@@ -73,9 +76,16 @@ func (p *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//改为使用 protobuf 传输数据
+	body, err := proto.Marshal(&pb.Response{Value: view.ByteSlice()})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/octet-stream")
-	log.Println(view)
-	w.Write(view.ByteSlice())
+	//log.Println(view)
+	w.Write(body)
 }
 
 // Set updates the pool's list of peers.
