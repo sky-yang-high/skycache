@@ -1,8 +1,8 @@
 package lru_test
 
 import (
-	"geecache/lru"
 	"reflect"
+	"skycache/lru"
 	"testing"
 )
 

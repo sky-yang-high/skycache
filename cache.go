@@ -1,7 +1,7 @@
-package geecache
+package skycache
 
 import (
-	"geecache/lru"
+	"skycache/lru"
 	"sync"
 )
 

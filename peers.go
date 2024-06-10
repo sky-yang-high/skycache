@@ -1,4 +1,4 @@
-package geecache
+package skycache
 
 // 实现 根据 key,使用一致性哈希 选择相应的节点 的能力
 type PeerPicker interface {

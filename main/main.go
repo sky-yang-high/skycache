@@ -3,9 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"geecache"
 	"log"
 	"net/http"
+	"skycache"
 )
 
 var db = map[string]string{
@@ -14,16 +14,16 @@ var db = map[string]string{
 	"Sam":  "567",
 }
 
-func startCacheServer(addr string, addrs []string, gee *geecache.Group) {
-	peers := geecache.NewHTTPPool(addr)
+func startCacheServer(addr string, addrs []string, gee *skycache.Group) {
+	peers := skycache.NewHTTPPool(addr)
 	peers.Set(addrs...)
 	gee.RegisterPeers(peers)
 
-	log.Println("geecache is running at", addr)
+	log.Println("skycache is running at", addr)
 	log.Fatal(http.ListenAndServe(addr[7:], peers))
 }
 
-func startAPIServer(apiAddr string, gee *geecache.Group) {
+func startAPIServer(apiAddr string, gee *skycache.Group) {
 	http.Handle("/api", http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			key := r.URL.Query().Get("key")
@@ -44,7 +44,7 @@ func startAPIServer(apiAddr string, gee *geecache.Group) {
 func main() {
 	var port int
 	var api bool
-	flag.IntVar(&port, "port", 8001, "Geecache server port")
+	flag.IntVar(&port, "port", 8001, "skycache server port")
 	flag.BoolVar(&api, "api", false, "Start a api server?")
 	flag.Parse()
 
@@ -61,7 +61,7 @@ func main() {
 		addrs = append(addrs, v)
 	}
 
-	scoregee := geecache.NewGroup("scores", 2<<10, geecache.GetterFunc(
+	scoregee := skycache.NewGroup("scores", 2<<10, skycache.GetterFunc(
 		func(key string) ([]byte, error) {
 			log.Println("[SlowDB] search key", key)
 			if v, ok := db[key]; ok {

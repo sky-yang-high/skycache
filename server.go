@@ -1,4 +1,4 @@
-package geecache
+package skycache
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"geecache/consistenthash"
+	"skycache/consistenthash"
 )
 
 // 为 geecache 之间提供通信能力

@@ -1,4 +1,4 @@
-package geecache
+package skycache
 
 //兼容各种源数据的结构
 type ByteView struct {
