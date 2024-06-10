@@ -3,6 +3,7 @@ package skycache
 import (
 	"errors"
 	"log"
+	"skycache/singleflight"
 	"sync"
 )
 
@@ -21,9 +22,10 @@ func (f GetterFunc) Get(key string) ([]byte, error) {
 // 一个 Group，描述一种资源，这种资源分布式的保存在多个节点中
 type Group struct {
 	name      string
-	getter    Getter
+	getter    Getter //应对 cache 未命中
 	mainCache cache
-	peers     PeerPicker
+	peers     PeerPicker          //应对 远程节点
+	loader    *singleflight.Group //应对 缓存击穿
 }
 
 var (
@@ -45,12 +47,10 @@ func NewGroup(name string, cacheBytes int64, getter Getter) *Group {
 	}
 
 	g := &Group{
-		name:   name,
-		getter: getter,
-		mainCache: cache{
-			cacheBytes: cacheBytes,
-			//mu:         sync.RWMutex{},
-		},
+		name:      name,
+		getter:    getter,
+		mainCache: cache{cacheBytes: cacheBytes},
+		loader:    &singleflight.Group{},
 	}
 	groups[name] = g
 	return g
@@ -88,16 +88,22 @@ func (g *Group) RegisterPeers(peers PeerPicker) {
 }
 
 func (g *Group) load(key string) (value ByteView, err error) {
-	if g.peers != nil {
-		if peer, ok := g.peers.PickPeer(key); ok {
-			if value, err = g.getFromPeer(peer, key); err == nil {
-				return value, nil
+	//当未命中 cache 时，同一时刻多个相同 key 的请求只会发起一次 db 访问
+	view, err := g.loader.Do(key, func() (interface{}, error) {
+		if g.peers != nil {
+			if peer, ok := g.peers.PickPeer(key); ok {
+				if value, err = g.getFromPeer(peer, key); err == nil {
+					return value, nil
+				}
+				log.Println("[GeeCache] Failed to get from peer", err)
 			}
-			log.Println("[GeeCache] Failed to get from peer", err)
 		}
+		return g.getLocally(key)
+	})
+	if err != nil {
+		return ByteView{}, nil
 	}
-
-	return g.getLocally(key)
+	return view.(ByteView), nil
 }
 
 func (g *Group) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
