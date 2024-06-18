@@ -1,4 +1,4 @@
-# GeeCache
+# skyCache
 
 一个分布式缓存系统的 Go 实现，参考[7 天用 Go 从零实现分布式缓存 GeeCache](https://geektutu.com/post/geecache.html)。
 
